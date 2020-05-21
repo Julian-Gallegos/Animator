@@ -51,6 +51,15 @@ protected:
         }
         return evaluated_pts;
     }
+    std::vector<glm::vec2> LinearEvaluatePair(int density, glm::vec2 p0, glm::vec2 p1) const {
+        std::vector<glm::vec2> evaluated_pts;
+        for (int j = 0; j < density; j++) {
+            float t = j/(float) density;
+            glm::vec2 p = t*p1 + (1-t)*p0;
+            evaluated_pts.push_back(p);
+        }
+        return evaluated_pts;
+    }
     void AddBezier(std::vector<glm::vec2> &add_to, int density, glm::vec2 v0,
                    glm::vec2 v1, glm::vec2 v2, glm::vec2 v3) const {
         size_t j;

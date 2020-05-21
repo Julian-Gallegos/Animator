@@ -42,7 +42,13 @@ std::vector<glm::vec2> CatmullRomCurveEvaluator::EvaluateCurve(const std::vector
             v1 = p1 + ((1.f/6.f)*(p2 - p0));
             v2 = p2 - ((1.f/6.f)*(p3 - p1));
             v3 = p2;
-            AddBezier(evaluated_pts, density, v0, v1, v2, v3);
+            if (v1.x > v2.x) {
+                // what do i do tho?
+                for (auto e : LinearEvaluatePair(density, p1, p2))
+                    evaluated_pts.push_back(e);
+            } else {
+                AddBezier(evaluated_pts, density, v0, v1, v2, v3);
+            }
         }
     }
     evaluated_pts.push_back(ctrl_pts.back());
