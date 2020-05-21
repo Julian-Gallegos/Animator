@@ -45,7 +45,7 @@ std::vector<glm::vec2> BSplineCurveEvaluator::EvaluateCurve(const std::vector<gl
             }
             v0 = ((1.f/6.f)*b0) + ((2.f/3.f)*b1) + ((1.f/6.f)*b2);
             v1 = ((2.f/3.f)*b1) + ((1.f/3.f)*b2);
-            v2 = ((3.f/3.f)*b1) + ((2.f/3.f)*b2);
+            v2 = ((1.f/3.f)*b1) + ((2.f/3.f)*b2);
             v3 = ((1.f/6.f)*b1) + ((2.f/3.f)*b2) + ((1.f/6.f)*b3);
             AddBezier(evaluated_pts, density, v0, v1, v2, v3);
         }
