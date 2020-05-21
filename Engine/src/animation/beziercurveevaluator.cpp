@@ -27,8 +27,11 @@ std::vector<glm::vec2> BezierCurveEvaluator::EvaluateCurve(const std::vector<glm
     } else {
         size_t i, j;
         glm::vec2 v0, v1, v2, v3;
+        std::vector<glm::vec2> bezier_ctrl_pts, linear_ctrl_pts;
+
+
         for (i = 0; i < ctrl_pts.size(); i+= 3) {
-            if (ctrl_pts.size() % 3 != 0 && i >= ctrl_pts.size() - 3) {
+            if (i + 3 >= ctrl_pts.size()) {
                 std::vector<glm::vec2> last_few_ctrl, last_few_eval;
                 for (j = i; j < ctrl_pts.size(); j++) {
                     last_few_ctrl.push_back(ctrl_pts[j]);
