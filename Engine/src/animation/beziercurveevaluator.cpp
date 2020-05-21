@@ -18,15 +18,33 @@ std::vector<glm::vec2> BezierCurveEvaluator::EvaluateCurve(const std::vector<glm
     // Spline curve. Be sure to respect the extend_x_ and wrap_ flags in a
     // a reasonable way.
 
+    // use max_x_ with density??
+
     if (density == 0) density = 100;
-    for (size_t i = 0; i < ctrl_pts.size()-1; i++) {
-        for (int j = 0; j < density; j++) {
-            float t = j/(float) density;
-            glm::vec2 p = t*ctrl_pts[i+1] + (1-t)*ctrl_pts[i];
-            evaluated_pts.push_back(p);
+
+    if (ctrl_pts.size() < 4) {
+        evaluated_pts = LinearEvaluate(ctrl_pts, density);
+    } else {
+        size_t i, j;
+        glm::vec2 v0, v1, v2, v3;
+        for (i = 0; i < ctrl_pts.size(); i+= 3) {
+            if (ctrl_pts.size() % 3 != 0 && i >= ctrl_pts.size() - 3) {
+                std::vector<glm::vec2> last_few_ctrl, last_few_eval;
+                for (j = i; j < ctrl_pts.size(); j++) {
+                    last_few_ctrl.push_back(ctrl_pts[j]);
+                }
+                last_few_eval = LinearEvaluate(last_few_ctrl, density);
+                for (auto e : last_few_eval)
+                    evaluated_pts.push_back(e);
+            } else {
+                v0 = ctrl_pts[i], v1 = ctrl_pts[i+1], v2 = ctrl_pts[i+2], v3 = ctrl_pts[i+3];
+                AddBezier(evaluated_pts, density, v0, v1, v2, v3);
+            }
         }
     }
     evaluated_pts.push_back(ctrl_pts.back());
-    if (extend_x_) ExtendX(evaluated_pts, ctrl_pts);
+    if (extend_x_)
+        ExtendX(evaluated_pts, ctrl_pts);
+    // if (wrap_y_) -- extra credit
     return evaluated_pts;
 }

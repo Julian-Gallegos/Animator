@@ -19,6 +19,33 @@ public:
     virtual std::vector<glm::vec2> EvaluateCurve(const std::vector<glm::vec2>& ctrl_pts, int density) const = 0;
     virtual ~CurveEvaluator() {}
     void Wrap(bool wrap = true) { wrap_y_ = wrap; }
+    std::vector<glm::vec2> LinearEvaluate(const std::vector<glm::vec2> &ctrl_pts, int density) const {
+        std::vector<glm::vec2> evaluated_pts;
+
+        if (density == 0) density = 100;
+        for (size_t i = 0; i < ctrl_pts.size()-1; i++) {
+            for (int j = 0; j < density; j++) {
+                float t = j/(float) density;
+                glm::vec2 p = t*ctrl_pts[i+1] + (1-t)*ctrl_pts[i];
+                evaluated_pts.push_back(p);
+            }
+        }
+        return evaluated_pts;
+    }
+    void AddBezier(std::vector<glm::vec2> &add_to, int density, glm::vec2 v0,
+                   glm::vec2 v1, glm::vec2 v2, glm::vec2 v3) const {
+        size_t j;
+        double u;
+        glm::vec2 next;
+        for (j = 0; j < static_cast<size_t>(density); j++) {
+            u = static_cast<double>(j)/static_cast<double>(density); // j/density
+            next = (static_cast<float>(pow(1.0-u, 3.0)) * v0) +
+                   (static_cast<float>(3.0*u*pow(1.0-u, 2.0)) * v1) +
+                   (static_cast<float>(3.0*pow(u, 2.0)*(1-u)) * v2) +
+                   (static_cast<float>(pow(u, 3.0)) * v3);
+            add_to.push_back(next);
+        }
+    }
 protected:
     void ExtendX(std::vector<glm::vec2>& out_pts, const std::vector<glm::vec2>& in_pts) const {
         if (wrap_y_) {
