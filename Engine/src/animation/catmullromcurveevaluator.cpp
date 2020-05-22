@@ -43,7 +43,6 @@ std::vector<glm::vec2> CatmullRomCurveEvaluator::EvaluateCurve(const std::vector
             v2 = p2 - ((1.f/6.f)*(p3 - p1));
             v3 = p2;
             if (v1.x > v2.x) {
-                // what do i do tho?
                 for (auto e : LinearEvaluatePair(density, p1, p2))
                     evaluated_pts.push_back(e);
             } else {

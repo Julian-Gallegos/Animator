@@ -24,6 +24,7 @@ ParticleSystem::ParticleSystem() :
     // REQUIREMENT:
     // init drag force with DragF -- refer to how we deal with constant_force_
     // remember  (f = -k_d * v), where DragF represents k_d
+    drag_force_(DragF.Get()),
     num_particles_(0),
     particle_index_(0),
     simulating_(false)
@@ -89,12 +90,13 @@ void ParticleSystem::UpdateSimulation(float delta_t, const std::vector<std::pair
     time_to_emit_ -= delta_t;
     if (time_to_emit_ <= 0.0) EmitParticles();
 
-   // REQUIREMENT:
-   // For each particle ...
-   //      Calculate forces
-   //      Solve the system of forces using Euler's method
-   //      Update the particle
-   //      Check for and handle collisions
+    // REQUIREMENT:
+    // For each particle ...
+    //      Calculate forces
+    //      Solve the system of forces using Euler's method
+    //      Update the particle
+    //      Check for and handle collisions
+
 
 
    // Collision code might look something like this:
@@ -112,7 +114,10 @@ void ParticleSystem::UpdateSimulation(float delta_t, const std::vector<std::pair
        } else if (PlaneCollider* plane_collider = collider_object->GetComponent<PlaneCollider>()) {
            // Check for Plane Collision
        }
-       // When updating particle velocity, remember it's in the worls space.
+       // one of the above should always be true in the current version, I suppose.
+       // Even though there's also a cylindercollider
+
+       // When updating particle velocity, remember it's in the world space.
    }
 }
 
