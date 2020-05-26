@@ -44,6 +44,7 @@ ParticleSystem::ParticleSystem() :
     // REQUIREMENT: 
     //    add viscous drag force into forces_ array if your drag force also inherit from class Force
     //    If not, you could use your own way to prepare your drag force
+    forces_.push_back(std::shared_ptr<Force>(&drag_force_)); // Assuming this works like the one for constant_force_ might need to review smart pointers.
 }
 
 void ParticleSystem::UpdateModelMatrix(glm::mat4 model_matrix) {
@@ -64,6 +65,17 @@ void ParticleSystem::EmitParticles() {
     // For performance reasons, limit the amount of particles that exist at the same time
     // to some finite amount (MAX_PARTICLES). Either delete or recycle old particles as needed.
 
+    // Not sure if I'm supposed to be creating "MAX_PARTICLES" particles all at once here or not
+    // Also not sure if there's sopme case here I'm not accounting for, like how would I check if I even need to "delete or recycle old particles as needed."
+    while (num_particles_ < MAX_PARTICLES) {
+        glm::vec3 position = glm::vec3(model_matrix_*glm::vec4(0,0,0,1)); // I suppose the local position should be (0,0,0)?
+        glm::vec3 velocity = glm::vec3(model_matrix_*glm::vec4(InitialVelocity.Get(), 1));
+        glm::vec3 rotation = glm::vec3(model_matrix_*glm::vec4(0,0,0,1)); // I don't think we're passed in any info for angle at this point?
+
+        particles_.push_back(std::unique_ptr<Particle>(new Particle(Mass.Get(), position, velocity, rotation))); // Once again, double check that I'm using smart pointer correctly.
+        num_particles_++;
+    }
+
     // Reset the time
     time_to_emit_ = Period.Get();
 }
@@ -80,6 +92,7 @@ void ParticleSystem::StartSimulation() {
     constant_force_.SetForce(ConstantF.Get());
     // REQUIREMENT:
     // Set your added drag force as DragF.Get() -- Refer to what we did on constact_force_
+    drag_force_.SetForce(DragF.Get());
     ResetSimulation();
 }
 
