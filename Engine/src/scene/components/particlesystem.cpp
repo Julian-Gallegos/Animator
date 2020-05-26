@@ -12,6 +12,8 @@
 
 REGISTER_COMPONENT(ParticleSystem, ParticleSystem)
 
+static glm::vec3 ReflectVec(glm::vec3 in, glm::vec3 norm);
+
 ParticleSystem::ParticleSystem() :
     ParticleGeometry({"Sphere"}, 0),
     ParticleMaterial(AssetType::Material),
@@ -109,29 +111,48 @@ void ParticleSystem::UpdateSimulation(float delta_t, const std::vector<std::pair
     //      Solve the system of forces using Euler's method
     //      Update the particle
     //      Check for and handle collisions
+    size_t i;
+    Particle *p;
+    for (i = 0; i < particles_.size(); i++) {
+        p = particles_[i].get();
 
+        // I think this is how we get these?
+        glm::vec3 gravity = constant_force_.GetForce(*p) * delta_t,
+                  drag = drag_force_.GetForce(*p) * delta_t,
+                  new_velocity = p->Velocity + gravity + drag;
 
+        // Collision code might look something like this:
+        for (auto& kv : colliders) {
+            SceneObject* collider_object = kv.first;
+            glm::mat4 collider_model_matrix = kv.second;
 
-   // Collision code might look something like this:
-   for (auto& kv : colliders) {
-       SceneObject* collider_object = kv.first;
-       glm::mat4 collider_model_matrix = kv.second;
+            static const double EPSILON = 0.1;
+            float particle_radius = 0.5f;
 
-       static const double EPSILON = 0.1;
-       float particle_radius = 0.5f;
+            // When checking collisions, remember to bring particles from world space to collider local object space
+            // The trasformation matrix can be derived by taking invese of collider_model_matrix
+            glm::vec3 future_pos = p->Position + (delta_t * new_velocity);
+            if (SphereCollider* sphere_collider = collider_object->GetComponent<SphereCollider>()) {
+                 // Check for Sphere Collision
+                 double sphere_radius = sphere_collider->Radius.Get();
+                 if (future_pos.length() <= particle_radius + sphere_radius + EPSILON) {
+                     // collision
+                     glm::vec3 norm = glm::normalize(future_pos);
+                 }
+            } else if (PlaneCollider* plane_collider = collider_object->GetComponent<PlaneCollider>()) {
+                 // Check for Plane Collision
+                 // plane stretches across X-Y plane, centered at origin
+                 // Width is the size of its x range
+                 // Height is the size of its y range
+                 glm::vec3 plane_norm(0.f, 0.f, 1.f);
+            }
+            // one of the above should always be true in the current version, I suppose.
+            // Even though there's also a cylindercollider
 
-       // When checking collisions, remember to bring particles from world space to collider local object space
-       // The trasformation matrix can be derived by taking invese of collider_model_matrix
-       if (SphereCollider* sphere_collider = collider_object->GetComponent<SphereCollider>()) {
-           // Check for Sphere Collision
-       } else if (PlaneCollider* plane_collider = collider_object->GetComponent<PlaneCollider>()) {
-           // Check for Plane Collision
-       }
-       // one of the above should always be true in the current version, I suppose.
-       // Even though there's also a cylindercollider
-
-       // When updating particle velocity, remember it's in the world space.
-   }
+            // When updating particle velocity, remember it's in the world space.
+            // new_velocity = collider_model_matrix * p->Velocity;
+        }
+    }
 }
 
 void ParticleSystem::StopSimulation() {
@@ -150,4 +171,8 @@ bool ParticleSystem::IsSimulating() {
 
 void ParticleSystem::OnGeometrySet(int c) {
     GeomChanged.Emit(ParticleGeometry.GetChoices()[c]);
+}
+
+static glm::vec3 ReflectVec(glm::vec3 in, glm::vec3 norm) {
+    return glm::normalize((2.f*glm::dot(in, norm)*norm)-in);
 }
