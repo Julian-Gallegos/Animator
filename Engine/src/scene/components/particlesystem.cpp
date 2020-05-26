@@ -145,7 +145,7 @@ void ParticleSystem::UpdateSimulation(float delta_t, const std::vector<std::pair
                  // Width is the size of its x range
                  // Height is the size of its y range
                  glm::vec3 plane_norm(0.f, 0.f, 1.f);
-                 if (future_pos.length() < EPSILON &&
+                 if (future_pos.length() < particle_radius + EPSILON &&
                      abs(future_pos.x) < plane_collider->Width.Get() &&
                      abs(future_pos.y) < plane_collider->Height.Get()) {
 
