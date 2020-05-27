@@ -95,7 +95,7 @@ protected:
     glm::mat4 model_matrix_;
     double time_to_emit_;
     bool simulating_;
-    std::vector<std::unique_ptr<Particle>> particles_;
+    std::list<std::unique_ptr<Particle>> particles_;
     std::vector<std::shared_ptr<Force>> forces_;
 
     void OnGeometrySet(int);

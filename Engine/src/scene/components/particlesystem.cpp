@@ -69,13 +69,21 @@ void ParticleSystem::EmitParticles() {
 
     // Not sure if I'm supposed to be creating "MAX_PARTICLES" particles all at once here or not
     // Also not sure if there's sopme case here I'm not accounting for, like how would I check if I even need to "delete or recycle old particles as needed."
-    while (num_particles_ < MAX_PARTICLES/2) {
+    if (num_particles_ < MAX_PARTICLES) {
         glm::vec3 position = glm::vec3(model_matrix_*glm::vec4(0,0,0,1.f)); // I suppose the local position should be (0,0,0)?
         glm::vec3 velocity = glm::vec3(model_matrix_*glm::vec4(InitialVelocity.Get(), 0.f));
         glm::vec3 rotation = glm::vec3(model_matrix_*glm::vec4(0,0,0,1.f)); // I don't think we're passed in any info for angle at this point?
 
         particles_.push_back(std::unique_ptr<Particle>(new Particle(Mass.Get(), position, velocity, rotation))); // Once again, double check that I'm using smart pointer correctly.
         num_particles_++;
+    } else {
+        particles_.pop_front();
+        glm::vec3 position = glm::vec3(model_matrix_*glm::vec4(0,0,0,1.f)); // I suppose the local position should be (0,0,0)?
+        glm::vec3 velocity = glm::vec3(model_matrix_*glm::vec4(InitialVelocity.Get(), 0.f));
+        glm::vec3 rotation = glm::vec3(model_matrix_*glm::vec4(0,0,0,1.f)); // I don't think we're passed in any info for angle at this point?
+
+        particles_.push_back(std::unique_ptr<Particle>(new Particle(Mass.Get(), position, velocity, rotation))); // Once again, double check that I'm using smart pointer correctly.
+
     }
 
     // Reset the time
@@ -113,12 +121,13 @@ void ParticleSystem::UpdateSimulation(float delta_t, const std::vector<std::pair
     //      Check for and handle collisions
     size_t i;
     Particle *p;
-    for (i = 0; i < particles_.size(); i++) {
-        p = particles_[i].get();
+    std::list<std::unique_ptr<Particle>>::iterator iter;
+    for (iter = particles_.begin(); iter != particles_.end(); iter++) {
+        p = iter->get();
 
         // I think this is how we get these?
-        glm::vec3 gravity = constant_force_.GetForce(*p) * delta_t,
-                  drag = drag_force_.GetForce(*p) * delta_t,
+        glm::vec3 gravity = constant_force_.GetForce(*p),
+                  drag = drag_force_.GetForce(*p),
                   new_velocity = p->Velocity + gravity + drag;
 
         // Collision code might look something like this:
