@@ -141,6 +141,7 @@ void ParticleSystem::UpdateSimulation(float delta_t, const std::vector<std::pair
                  if (future_pos.length() <= particle_radius + sphere_radius + EPSILON) {
                      // collision
                      glm::vec3 norm = glm::normalize(future_pos);
+                     new_velocity = ReflectVec(new_velocity, norm);
 
                  }
             } else if (PlaneCollider* plane_collider = collider_object->GetComponent<PlaneCollider>()) {
@@ -149,10 +150,10 @@ void ParticleSystem::UpdateSimulation(float delta_t, const std::vector<std::pair
                  // Width is the size of its x range
                  // Height is the size of its y range
                  glm::vec3 plane_norm(0.f, 0.f, 1.f);
-                 if (future_pos.length() < particle_radius + EPSILON &&
+                 if (glm::dot(future_pos,plane_norm) <= particle_radius + EPSILON &&
                      abs(future_pos.x) < plane_collider->Width.Get() &&
                      abs(future_pos.y) < plane_collider->Height.Get()) {
-
+                     new_velocity = ReflectVec(new_velocity, plane_norm);
                  }
             }
             // one of the above should always be true in the current version, I suppose.
@@ -161,6 +162,10 @@ void ParticleSystem::UpdateSimulation(float delta_t, const std::vector<std::pair
             // When updating particle velocity, remember it's in the world space.
             glm::vec4 fourd_vel(new_velocity, 0.f);
             fourd_vel = collider_model_matrix * fourd_vel;
+            new_velocity = glm::vec3(fourd_vel);
+
+            p->Position = p->Position + new_velocity*delta_t;
+            p->Velocity = new_velocity;
         }
     }
 }
