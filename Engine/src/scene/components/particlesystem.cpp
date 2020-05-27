@@ -69,22 +69,17 @@ void ParticleSystem::EmitParticles() {
 
     // Not sure if I'm supposed to be creating "MAX_PARTICLES" particles all at once here or not
     // Also not sure if there's sopme case here I'm not accounting for, like how would I check if I even need to "delete or recycle old particles as needed."
-    if (num_particles_ < MAX_PARTICLES) {
-        glm::vec3 position = glm::vec3(model_matrix_*glm::vec4(0,0,0,1.f)); // I suppose the local position should be (0,0,0)?
-        glm::vec3 velocity = glm::vec3(model_matrix_*glm::vec4(InitialVelocity.Get(), 0.f));
-        glm::vec3 rotation = glm::vec3(model_matrix_*glm::vec4(0,0,0,1.f)); // I don't think we're passed in any info for angle at this point?
-
-        particles_.push_back(std::unique_ptr<Particle>(new Particle(Mass.Get(), position, velocity, rotation))); // Once again, double check that I'm using smart pointer correctly.
-        num_particles_++;
-    } else {
+    if (num_particles_ == MAX_PARTICLES) {
+        delete particles_.front().release();
         particles_.pop_front();
+        num_particles_--;
+    }
         glm::vec3 position = glm::vec3(model_matrix_*glm::vec4(0,0,0,1.f)); // I suppose the local position should be (0,0,0)?
         glm::vec3 velocity = glm::vec3(model_matrix_*glm::vec4(InitialVelocity.Get(), 0.f));
         glm::vec3 rotation = glm::vec3(model_matrix_*glm::vec4(0,0,0,1.f)); // I don't think we're passed in any info for angle at this point?
 
-        particles_.push_back(std::unique_ptr<Particle>(new Particle(Mass.Get(), position, velocity, rotation))); // Once again, double check that I'm using smart pointer correctly.
-
-    }
+        particles_.push_back(std::unique_ptr<Particle>(new Particle(Mass.Get(), position, velocity, rotation)));
+        num_particles_++;
 
     // Reset the time
     time_to_emit_ = Period.Get();
@@ -119,7 +114,6 @@ void ParticleSystem::UpdateSimulation(float delta_t, const std::vector<std::pair
     //      Solve the system of forces using Euler's method
     //      Update the particle
     //      Check for and handle collisions
-    size_t i;
     Particle *p;
     std::list<std::unique_ptr<Particle>>::iterator iter;
     for (iter = particles_.begin(); iter != particles_.end(); iter++) {
@@ -128,7 +122,8 @@ void ParticleSystem::UpdateSimulation(float delta_t, const std::vector<std::pair
         // I think this is how we get these?
         glm::vec3 gravity = constant_force_.GetForce(*p),
                   drag = drag_force_.GetForce(*p),
-                  new_velocity = p->Velocity + gravity + drag;
+                  net_force = gravity + drag,
+                  new_velocity = p->Velocity;
 
         // Collision code might look something like this:
         for (auto& kv : colliders) {
@@ -142,15 +137,16 @@ void ParticleSystem::UpdateSimulation(float delta_t, const std::vector<std::pair
             // The trasformation matrix can be derived by taking invese of collider_model_matrix
             glm::mat4 inverse = glm::inverse(collider_model_matrix);
             glm::vec3 local_position = glm::vec3(inverse * glm::vec4(p->Position, 1.f)); // update p->Position to local coords, is currently world coords
+            glm::vec3 local_vel = glm::vec3(inverse * glm::vec4(new_velocity, 0.f));
 
-            glm::vec3 future_pos = local_position + (delta_t * new_velocity);
+            glm::vec3 future_pos = local_position + (delta_t * local_vel);
             if (SphereCollider* sphere_collider = collider_object->GetComponent<SphereCollider>()) {
                  // Check for Sphere Collision
                  double sphere_radius = sphere_collider->Radius.Get();
                  if (future_pos.length() <= particle_radius + sphere_radius + EPSILON) {
                      // collision
                      glm::vec3 norm = glm::normalize(future_pos);
-                     new_velocity = ReflectVec(new_velocity, norm);
+                     new_velocity = glm::vec3(collider_model_matrix * glm::vec4(ReflectVec(local_vel, norm), 0.f));
 
                  }
             } else if (PlaneCollider* plane_collider = collider_object->GetComponent<PlaneCollider>()) {
@@ -159,10 +155,11 @@ void ParticleSystem::UpdateSimulation(float delta_t, const std::vector<std::pair
                  // Width is the size of its x range
                  // Height is the size of its y range
                  glm::vec3 plane_norm(0.f, 0.f, 1.f);
-                 if (glm::dot(future_pos,plane_norm) <= particle_radius + EPSILON &&
+                 if (glm::dot(future_pos, plane_norm) <= particle_radius + EPSILON &&
                      abs(future_pos.x) < plane_collider->Width.Get() &&
-                     abs(future_pos.y) < plane_collider->Height.Get()) {
-                     new_velocity = ReflectVec(new_velocity, plane_norm);
+                     abs(future_pos.y) < plane_collider->Height.Get() &&
+                     local_vel.z < 0) {
+                     new_velocity = glm::vec3(collider_model_matrix * glm::vec4(ReflectVec(local_vel, plane_norm), 0.f));
                  }
             }
             // one of the above should always be true in the current version, I suppose.
@@ -172,10 +169,10 @@ void ParticleSystem::UpdateSimulation(float delta_t, const std::vector<std::pair
             glm::vec4 fourd_vel(new_velocity, 0.f);
             fourd_vel = collider_model_matrix * fourd_vel;
             new_velocity = glm::vec3(fourd_vel);
-
-            p->Position = p->Position + new_velocity*delta_t;
-            p->Velocity = new_velocity;
         }
+        new_velocity = new_velocity + net_force*delta_t;
+        p->Velocity = new_velocity;
+        p->Position = p->Position + new_velocity*delta_t;
     }
 }
 
@@ -185,6 +182,12 @@ void ParticleSystem::StopSimulation() {
 
 void ParticleSystem::ResetSimulation() {
     // Clear all particles
+    std::list<std::unique_ptr<Particle>>::iterator iter;
+    for (iter = particles_.begin(); iter != particles_.end(); iter++) {
+        delete iter->release();
+    }
+    particles_.clear();
+    num_particles_ = 0;
     time_to_emit_ = Period.Get();
 }
 
