@@ -70,9 +70,9 @@ void ParticleSystem::EmitParticles() {
     // Not sure if I'm supposed to be creating "MAX_PARTICLES" particles all at once here or not
     // Also not sure if there's sopme case here I'm not accounting for, like how would I check if I even need to "delete or recycle old particles as needed."
     while (num_particles_ < MAX_PARTICLES/2) {
-        glm::vec3 position = glm::vec3(model_matrix_*glm::vec4(0,0,0,1)); // I suppose the local position should be (0,0,0)?
+        glm::vec3 position = glm::vec3(model_matrix_*glm::vec4(0,0,0,1.f)); // I suppose the local position should be (0,0,0)?
         glm::vec3 velocity = glm::vec3(model_matrix_*glm::vec4(InitialVelocity.Get(), 0.f));
-        glm::vec3 rotation = glm::vec3(model_matrix_*glm::vec4(0,0,0,1)); // I don't think we're passed in any info for angle at this point?
+        glm::vec3 rotation = glm::vec3(model_matrix_*glm::vec4(0,0,0,1.f)); // I don't think we're passed in any info for angle at this point?
 
         particles_.push_back(std::unique_ptr<Particle>(new Particle(Mass.Get(), position, velocity, rotation))); // Once again, double check that I'm using smart pointer correctly.
         num_particles_++;
@@ -131,13 +131,17 @@ void ParticleSystem::UpdateSimulation(float delta_t, const std::vector<std::pair
 
             // When checking collisions, remember to bring particles from world space to collider local object space
             // The trasformation matrix can be derived by taking invese of collider_model_matrix
-            glm::vec3 future_pos = p->Position + (delta_t * new_velocity); // update p->Position to local coords, is currently world coords
+            glm::mat4 inverse = glm::inverse(collider_model_matrix);
+            glm::vec3 local_position = glm::vec3(inverse * glm::vec4(p->Position, 1.f)); // update p->Position to local coords, is currently world coords
+
+            glm::vec3 future_pos = local_position + (delta_t * new_velocity);
             if (SphereCollider* sphere_collider = collider_object->GetComponent<SphereCollider>()) {
                  // Check for Sphere Collision
                  double sphere_radius = sphere_collider->Radius.Get();
                  if (future_pos.length() <= particle_radius + sphere_radius + EPSILON) {
                      // collision
                      glm::vec3 norm = glm::normalize(future_pos);
+
                  }
             } else if (PlaneCollider* plane_collider = collider_object->GetComponent<PlaneCollider>()) {
                  // Check for Plane Collision
