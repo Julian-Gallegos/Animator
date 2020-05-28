@@ -122,11 +122,9 @@ void ParticleSystem::UpdateSimulation(float delta_t, const std::vector<std::pair
         // I think this is how we get these?
         glm::vec3 gravity = constant_force_.GetForce(*p),
                   drag = drag_force_.GetForce(*p),
-                  net_force = gravity + drag,
-                  new_velocity = p->Velocity;
-        new_velocity += net_force/p->Mass * delta_t;
-        p->Velocity = new_velocity;
-        p->Position = p->Position + new_velocity*delta_t;
+                  net_force = gravity + drag;
+        p->Velocity += net_force/p->Mass * delta_t;
+        p->Position = p->Position + p->Velocity*delta_t;
 
         // Collision code might look something like this:
         for (auto& kv : colliders) {
@@ -140,7 +138,7 @@ void ParticleSystem::UpdateSimulation(float delta_t, const std::vector<std::pair
             // The trasformation matrix can be derived by taking invese of collider_model_matrix
             glm::mat4 inverse = glm::inverse(collider_model_matrix);
             glm::vec3 local_position = glm::vec3(inverse * glm::vec4(p->Position, 1.f)); // update p->Position to local coords, is currently world coords
-            glm::vec3 local_vel = glm::vec3(inverse * glm::vec4(new_velocity, 0.f));
+            glm::vec3 local_vel = glm::vec3(inverse * glm::vec4(p->Velocity, 0.f));
 
             if (SphereCollider* sphere_collider = collider_object->GetComponent<SphereCollider>()) {
                  // Check for Sphere Collision
@@ -151,7 +149,7 @@ void ParticleSystem::UpdateSimulation(float delta_t, const std::vector<std::pair
                      glm::vec3 norm = glm::normalize(local_position);
                      glm::vec3 bounce = ReflectVec(local_vel, norm, sphere_collider->Restitution.Get());
                      p->Velocity = glm::vec3(collider_model_matrix * glm::vec4(bounce, 0.f));
-                     p->Position = p->Position + p->Velocity*delta_t + p->Velocity*(float)EPSILON;
+                     p->Position = p->Position + p->Velocity*delta_t + p->Velocity*static_cast<float>(EPSILON);
 
                  }
             } else if (PlaneCollider* plane_collider = collider_object->GetComponent<PlaneCollider>()) {
@@ -166,7 +164,7 @@ void ParticleSystem::UpdateSimulation(float delta_t, const std::vector<std::pair
                         local_vel.z < 0) {
                      glm::vec3 bounce = ReflectVec(local_vel, plane_norm, plane_collider->Restitution.Get());
                      p->Velocity = glm::vec3(collider_model_matrix * glm::vec4(bounce, 0.f));
-                     p->Position = p->Position + p->Velocity*delta_t;
+                     p->Position = p->Position + p->Velocity*delta_t + p->Velocity*static_cast<float>(EPSILON);
                  }
             }
             // one of the above should always be true in the current version, I suppose.
