@@ -12,7 +12,7 @@
 
 REGISTER_COMPONENT(ParticleSystem, ParticleSystem)
 
-static glm::vec3 ReflectVec(glm::vec3 in, glm::vec3 norm);
+static glm::vec3 ReflectVec(glm::vec3 V, glm::vec3 N, double restitution);
 
 ParticleSystem::ParticleSystem() :
     ParticleGeometry({"Sphere"}, 0),
@@ -74,12 +74,12 @@ void ParticleSystem::EmitParticles() {
         particles_.pop_front();
         num_particles_--;
     }
-        glm::vec3 position = glm::vec3(model_matrix_*glm::vec4(0,0,0,1.f)); // I suppose the local position should be (0,0,0)?
-        glm::vec3 velocity = glm::vec3(model_matrix_*glm::vec4(InitialVelocity.Get(), 0.f));
-        glm::vec3 rotation = glm::vec3(model_matrix_*glm::vec4(0,0,0,1.f)); // I don't think we're passed in any info for angle at this point?
+    glm::vec3 position = glm::vec3(model_matrix_*glm::vec4(0,0,0,1.f)); // I suppose the local position should be (0,0,0)?
+    glm::vec3 velocity = glm::vec3(model_matrix_*glm::vec4(InitialVelocity.Get(), 0.f));
+    glm::vec3 rotation = glm::vec3(model_matrix_*glm::vec4(0,0,0,1.f)); // I don't think we're passed in any info for angle at this point?
 
-        particles_.push_back(std::unique_ptr<Particle>(new Particle(Mass.Get(), position, velocity, rotation)));
-        num_particles_++;
+    particles_.push_back(std::unique_ptr<Particle>(new Particle(Mass.Get(), position, velocity, rotation)));
+    num_particles_++;
 
     // Reset the time
     time_to_emit_ = Period.Get();
@@ -124,6 +124,9 @@ void ParticleSystem::UpdateSimulation(float delta_t, const std::vector<std::pair
                   drag = drag_force_.GetForce(*p),
                   net_force = gravity + drag,
                   new_velocity = p->Velocity;
+        new_velocity += net_force/p->Mass * delta_t;
+        p->Velocity = new_velocity;
+        p->Position = p->Position + new_velocity*delta_t;
 
         // Collision code might look something like this:
         for (auto& kv : colliders) {
@@ -139,14 +142,14 @@ void ParticleSystem::UpdateSimulation(float delta_t, const std::vector<std::pair
             glm::vec3 local_position = glm::vec3(inverse * glm::vec4(p->Position, 1.f)); // update p->Position to local coords, is currently world coords
             glm::vec3 local_vel = glm::vec3(inverse * glm::vec4(new_velocity, 0.f));
 
-            glm::vec3 future_pos = local_position + (delta_t * local_vel);
             if (SphereCollider* sphere_collider = collider_object->GetComponent<SphereCollider>()) {
                  // Check for Sphere Collision
                  double sphere_radius = sphere_collider->Radius.Get();
-                 if (future_pos.length() <= particle_radius + sphere_radius + EPSILON) {
+                 if (local_position.length() <= particle_radius + sphere_radius + EPSILON) {
                      // collision
-                     glm::vec3 norm = glm::normalize(future_pos);
-                     new_velocity = glm::vec3(collider_model_matrix * glm::vec4(ReflectVec(local_vel, norm), 0.f));
+                     glm::vec3 norm = glm::normalize(local_position);
+                     glm::vec3 bounce = ReflectVec(local_vel, norm, sphere_collider->Restitution.Get());
+                     new_velocity = glm::vec3(collider_model_matrix * glm::vec4(bounce, 0.f));
 
                  }
             } else if (PlaneCollider* plane_collider = collider_object->GetComponent<PlaneCollider>()) {
@@ -155,24 +158,17 @@ void ParticleSystem::UpdateSimulation(float delta_t, const std::vector<std::pair
                  // Width is the size of its x range
                  // Height is the size of its y range
                  glm::vec3 plane_norm(0.f, 0.f, 1.f);
-                 if (glm::dot(future_pos, plane_norm) <= particle_radius + EPSILON &&
-                     abs(future_pos.x) < plane_collider->Width.Get() &&
-                     abs(future_pos.y) < plane_collider->Height.Get() &&
-                     local_vel.z < 0) {
-                     new_velocity = glm::vec3(collider_model_matrix * glm::vec4(ReflectVec(local_vel, plane_norm), 0.f));
+                 if (glm::dot(local_position, plane_norm) <= particle_radius + EPSILON &&
+                        abs(local_position.x) < plane_collider->Width.Get()/2.f &&
+                        abs(local_position.y) < plane_collider->Height.Get()/2.f &&
+                        local_vel.z < 0) {
+                     glm::vec3 bounce = ReflectVec(local_vel, plane_norm, plane_collider->Restitution.Get());
+                     new_velocity = glm::vec3(collider_model_matrix * glm::vec4(bounce, 0.f));
                  }
             }
             // one of the above should always be true in the current version, I suppose.
             // Even though there's also a cylindercollider
-
-            // When updating particle velocity, remember it's in the world space.
-            glm::vec4 fourd_vel(new_velocity, 0.f);
-            fourd_vel = collider_model_matrix * fourd_vel;
-            new_velocity = glm::vec3(fourd_vel);
         }
-        new_velocity = new_velocity + net_force*delta_t;
-        p->Velocity = new_velocity;
-        p->Position = p->Position + new_velocity*delta_t;
     }
 }
 
@@ -200,6 +196,9 @@ void ParticleSystem::OnGeometrySet(int c) {
     GeomChanged.Emit(ParticleGeometry.GetChoices()[c]);
 }
 
-static glm::vec3 ReflectVec(glm::vec3 in, glm::vec3 norm) {
-    return glm::normalize((2.f*glm::dot(in, norm)*norm)-in);
+static glm::vec3 ReflectVec(glm::vec3 V, glm::vec3 N, double restitution) {
+    glm::vec3 Vn, Vt;
+    Vn = glm::dot(N, V)*N;
+    Vt = V-Vn;
+    return Vt - glm::vec3(restitution*glm::dvec3(Vn));
 }
